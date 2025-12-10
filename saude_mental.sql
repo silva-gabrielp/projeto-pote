@@ -625,6 +625,46 @@ CREATE TABLE `pote` (
 -- --------------------------------------------------------
 
 --
+-- Estrutura da tabela `registro_login`
+--
+
+DROP TABLE IF EXISTS registro_login;
+CREATE TABLE registro_login (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  fk_dados_acesso BIGINT UNSIGNED NOT NULL,
+  quando DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  foi_login TINYINT(1) NOT NULL DEFAULT 1, -- 1 = login, 0 = logout
+  motivo ENUM('direto','erro','desconhecido','expirado','hack') NOT NULL DEFAULT 'direto',
+  ip VARCHAR(64) DEFAULT NULL,
+  device_info VARCHAR(300) DEFAULT NULL,
+  session_id VARCHAR(191) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_fk_dados_acesso (fk_dados_acesso),
+  CONSTRAINT fk_registrologin_dadosacesso FOREIGN KEY (fk_dados_acesso) REFERENCES dados_acesso(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_registrar_login $$
+
+CREATE PROCEDURE sp_registrar_login(
+  IN p_fk_dados_acesso BIGINT,
+  IN p_foi_login TINYINT,
+  IN p_motivo ENUM('direto','erro','desconhecido','expirado','hack'),
+  IN p_ip VARCHAR(64),
+  IN p_device_info VARCHAR(300),
+  IN p_session_id VARCHAR(191)
+)
+BEGIN
+  INSERT INTO registro_login (fk_dados_acesso, foi_login, motivo, ip, device_info, session_id)
+  VALUES (p_fk_dados_acesso, p_foi_login, p_motivo, p_ip, p_device_info, p_session_id);
+END $$
+
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
 -- Estrutura da tabela `session`
 --
 
@@ -824,6 +864,168 @@ CREATE TABLE `usuario_sem_autenticacao` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_identificador_unique` (`identificador`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura da tabela `conteudo_reacao`
+--
+
+DROP TABLE IF EXISTS conteudo_reacao;
+CREATE TABLE conteudo_reacao (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  fk_usuario BIGINT UNSIGNED NOT NULL,
+  item_tipo ENUM('atividade','desafio','oficina') NOT NULL,
+  fk_item BIGINT UNSIGNED NOT NULL,
+  acao ENUM('like','deslike','visualizacao') NOT NULL,
+  data_criacao DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  data_atualizacao TIMESTAMP(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_usuario_item (fk_usuario, item_tipo, fk_item),
+  KEY idx_item (item_tipo, fk_item),
+  KEY idx_usuario (fk_usuario),
+  CONSTRAINT fk_cr_reacao_usuario FOREIGN KEY (fk_usuario)
+    REFERENCES dados_acesso(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_reagir_conteudo $$
+CREATE PROCEDURE sp_reagir_conteudo(
+  IN p_fk_usuario BIGINT,
+  IN p_item_tipo ENUM('atividade','desafio','oficina'),
+  IN p_fk_item BIGINT,
+  IN p_acao ENUM('like','deslike','visualizacao')
+)
+BEGIN
+  DECLARE v_old_acao ENUM('like','deslike','visualizacao') DEFAULT NULL;
+  DECLARE v_exists INT DEFAULT 0;
+
+  -- iniciar transação
+  START TRANSACTION;
+
+  -- bloquear linha do usuário-item (se existir) para evitar race conditions
+  SELECT acao INTO v_old_acao
+  FROM conteudo_reacao
+  WHERE fk_usuario = p_fk_usuario
+    AND item_tipo = p_item_tipo
+    AND fk_item = p_fk_item
+  FOR UPDATE;
+
+  SET v_exists = (v_old_acao IS NOT NULL);
+
+  IF v_old_acao IS NULL THEN
+    -- não existia: inserir nova reação
+    INSERT INTO conteudo_reacao (fk_usuario, item_tipo, fk_item, acao)
+    VALUES (p_fk_usuario, p_item_tipo, p_fk_item, p_acao);
+
+    -- incrementar contador apropriado na tabela alvo
+    IF p_item_tipo = 'atividade' THEN
+      IF p_acao = 'like' THEN
+        UPDATE atividade SET likes = COALESCE(likes,0) + 1 WHERE id = p_fk_item;
+      ELSEIF p_acao = 'deslike' THEN
+        UPDATE atividade SET deslikes = COALESCE(deslikes,0) + 1 WHERE id = p_fk_item;
+      ELSEIF p_acao = 'visualizacao' THEN
+        UPDATE atividade SET visualizacoes = COALESCE(visualizacoes,0) + 1 WHERE id = p_fk_item;
+      END IF;
+    ELSEIF p_item_tipo = 'desafio' THEN
+      IF p_acao = 'like' THEN
+        UPDATE desafio SET likes = COALESCE(likes,0) + 1 WHERE id = p_fk_item;
+      ELSEIF p_acao = 'deslike' THEN
+        UPDATE desafio SET deslikes = COALESCE(deslikes,0) + 1 WHERE id = p_fk_item;
+      ELSEIF p_acao = 'visualizacao' THEN
+        UPDATE desafio SET visualizacoes = COALESCE(visualizacoes,0) + 1 WHERE id = p_fk_item;
+      END IF;
+    ELSEIF p_item_tipo = 'oficina' THEN
+      IF p_acao = 'like' THEN
+        UPDATE oficina SET likes = COALESCE(likes,0) + 1 WHERE id = p_fk_item;
+      ELSEIF p_acao = 'deslike' THEN
+        UPDATE oficina SET deslikes = COALESCE(deslikes,0) + 1 WHERE id = p_fk_item;
+      ELSEIF p_acao = 'visualizacao' THEN
+        UPDATE oficina SET visualizacoes = COALESCE(visualizacoes,0) + 1 WHERE id = p_fk_item;
+      END IF;
+    END IF;
+
+  ELSE
+    -- já existia uma ação anterior
+    IF v_old_acao = p_acao THEN
+      -- mesma ação: nada a fazer (pode opcionalmente atualizar timestamp)
+      UPDATE conteudo_reacao
+      SET data_atualizacao = CURRENT_TIMESTAMP(3)
+      WHERE fk_usuario = p_fk_usuario
+        AND item_tipo = p_item_tipo
+        AND fk_item = p_fk_item;
+    ELSE
+      -- ação diferente: atualizar registro e ajustar contadores (decrementa old, incrementa new)
+      UPDATE conteudo_reacao
+      SET acao = p_acao, data_atualizacao = CURRENT_TIMESTAMP(3)
+      WHERE fk_usuario = p_fk_usuario
+        AND item_tipo = p_item_tipo
+        AND fk_item = p_fk_item;
+
+      -- decrementar contador antigo e incrementar novo
+      IF p_item_tipo = 'atividade' THEN
+        IF v_old_acao = 'like' THEN
+          UPDATE atividade SET likes = GREATEST(0, COALESCE(likes,0) - 1) WHERE id = p_fk_item;
+        ELSEIF v_old_acao = 'deslike' THEN
+          UPDATE atividade SET deslikes = GREATEST(0, COALESCE(deslikes,0) - 1) WHERE id = p_fk_item;
+        ELSEIF v_old_acao = 'visualizacao' THEN
+          UPDATE atividade SET visualizacoes = GREATEST(0, COALESCE(visualizacoes,0) - 1) WHERE id = p_fk_item;
+        END IF;
+
+        IF p_acao = 'like' THEN
+          UPDATE atividade SET likes = COALESCE(likes,0) + 1 WHERE id = p_fk_item;
+        ELSEIF p_acao = 'deslike' THEN
+          UPDATE atividade SET deslikes = COALESCE(deslikes,0) + 1 WHERE id = p_fk_item;
+        ELSEIF p_acao = 'visualizacao' THEN
+          UPDATE atividade SET visualizacoes = COALESCE(visualizacoes,0) + 1 WHERE id = p_fk_item;
+        END IF;
+
+      ELSEIF p_item_tipo = 'desafio' THEN
+        IF v_old_acao = 'like' THEN
+          UPDATE desafio SET likes = GREATEST(0, COALESCE(likes,0) - 1) WHERE id = p_fk_item;
+        ELSEIF v_old_acao = 'deslike' THEN
+          UPDATE desafio SET deslikes = GREATEST(0, COALESCE(deslikes,0) - 1) WHERE id = p_fk_item;
+        ELSEIF v_old_acao = 'visualizacao' THEN
+          UPDATE desafio SET visualizacoes = GREATEST(0, COALESCE(visualizacoes,0) - 1) WHERE id = p_fk_item;
+        END IF;
+
+        IF p_acao = 'like' THEN
+          UPDATE desafio SET likes = COALESCE(likes,0) + 1 WHERE id = p_fk_item;
+        ELSEIF p_acao = 'deslike' THEN
+          UPDATE desafio SET deslikes = COALESCE(deslikes,0) + 1 WHERE id = p_fk_item;
+        ELSEIF p_acao = 'visualizacao' THEN
+          UPDATE desafio SET visualizacoes = COALESCE(visualizacoes,0) + 1 WHERE id = p_fk_item;
+        END IF;
+
+      ELSEIF p_item_tipo = 'oficina' THEN
+        IF v_old_acao = 'like' THEN
+          UPDATE oficina SET likes = GREATEST(0, COALESCE(likes,0) - 1) WHERE id = p_fk_item;
+        ELSEIF v_old_acao = 'deslike' THEN
+          UPDATE oficina SET deslikes = GREATEST(0, COALESCE(deslikes,0) - 1) WHERE id = p_fk_item;
+        ELSEIF v_old_acao = 'visualizacao' THEN
+          UPDATE oficina SET visualizacoes = GREATEST(0, COALESCE(visualizacoes,0) - 1) WHERE id = p_fk_item;
+        END IF;
+
+        IF p_acao = 'like' THEN
+          UPDATE oficina SET likes = COALESCE(likes,0) + 1 WHERE id = p_fk_item;
+        ELSEIF p_acao = 'deslike' THEN
+          UPDATE oficina SET deslikes = COALESCE(deslikes,0) + 1 WHERE id = p_fk_item;
+        ELSEIF p_acao = 'visualizacao' THEN
+          UPDATE oficina SET visualizacoes = COALESCE(visualizacoes,0) + 1 WHERE id = p_fk_item;
+        END IF;
+
+      END IF;
+
+    END IF;
+  END IF;
+
+  COMMIT;
+END $$
+
+DELIMITER ;
+
+-- --------------------------------------------------------
 
 --
 -- Índices para tabelas despejadas
