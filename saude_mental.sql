@@ -140,31 +140,45 @@ CREATE TABLE `configuracoes` (
 
 DROP TABLE IF EXISTS `dados_acesso`;
 CREATE TABLE `dados_acesso` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `fk_user` bigint(20) UNSIGNED DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `senha` varbinary(60) DEFAULT NULL,
-  `telefone` varchar(11) DEFAULT NULL,
-  `oauth_facebook` varchar(255) DEFAULT NULL,
-  `oauth_google` varchar(255) DEFAULT NULL,
-  `oauth_apple` varchar(255) DEFAULT NULL,
-  `oauth_telefone` varchar(255) DEFAULT NULL,
-  `login_principal` enum('email','telefone','oauth') DEFAULT 'oauth',
-  `conta_excluida` tinyint(1) DEFAULT 0,
-  `data_exclusao` datetime(3) DEFAULT NULL,
-  `data_cadastro` datetime(3) DEFAULT NULL,
-  `email_verificado` tinyint(1) DEFAULT 0,
-  `telefone_verificado` tinyint(1) DEFAULT 0,
-  `telefone_e_whatsapp` tinyint(1) DEFAULT 0,
-  `tipo_usuario` enum('usuario','profissional','empresa') NOT NULL,
-  `ultimo_login` datetime(3) DEFAULT NULL,
-  `tentativas_login` int(10) UNSIGNED DEFAULT 0,
-  `firebase_uid` longtext DEFAULT NULL,
-  `fk_profissional` bigint(20) UNSIGNED DEFAULT NULL,
-  `fk_empresa` bigint(20) UNSIGNED DEFAULT NULL,
-  `role` enum('admin','user','supervisor','tester') DEFAULT 'user',
-  `data_atualizacao` datetime(3) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  -- public_id: ULID (26 chars) — safe for exposing to frontend instead of numeric id
+  `public_id` CHAR(26) NOT NULL UNIQUE,
+  `fk_user` BIGINT UNSIGNED DEFAULT NULL,
+  `email` VARCHAR(255) DEFAULT NULL,
+  `senha` VARBINARY(255) DEFAULT NULL, -- armazenar hash (bcrypt/argon2) em binário/varbinary
+  `telefone` VARCHAR(25) DEFAULT NULL,
+  `firebase_uid` VARCHAR(255) DEFAULT NULL,
+  `e_empresa` BOOLEAN NOT NULL DEFAULT FALSE,
+  `e_profissional` BOOLEAN NOT NULL DEFAULT FALSE,
+  `login_principal` ENUM('email','telefone','oauth') NOT NULL DEFAULT 'oauth',
+  `conta_excluida` TINYINT(1) NOT NULL DEFAULT 0,
+  `data_exclusao` DATETIME(3) DEFAULT NULL,
+  `data_cadastro` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `email_verificado` TINYINT(1) NOT NULL DEFAULT 0,
+  `telefone_verificado` TINYINT(1) NOT NULL DEFAULT 0,
+  `telefone_e_whatsapp` TINYINT(1) NOT NULL DEFAULT 0,
+  `tipo_usuario` ENUM('usuario','profissional','empresa') NOT NULL DEFAULT 'usuario',
+  `ultimo_login` DATETIME(3) DEFAULT NULL,
+  `tentativas_login` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  `fk_profissional` BIGINT UNSIGNED DEFAULT NULL,
+  `fk_empresa` BIGINT UNSIGNED DEFAULT NULL,
+  `role` ENUM('admin','user','supervisor','tester') NOT NULL DEFAULT 'user',
+  `data_atualizacao` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_public_id` (`public_id`),
+  UNIQUE KEY `ux_firebase_uid` (`firebase_uid`),
+  KEY `idx_email` (`email`),
+  KEY `idx_telefone` (`telefone`),
+  KEY `idx_fk_user` (`fk_user`),
+  KEY `idx_fk_profissional` (`fk_profissional`),
+  KEY `idx_fk_empresa` (`fk_empresa`),
+  CONSTRAINT `fk_dadosacesso_dadosemp` FOREIGN KEY (`fk_empresa`)
+    REFERENCES `dados_empresariais` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_dadosacesso_dadosprof` FOREIGN KEY (`fk_profissional`)
+    REFERENCES `dados_profissionais` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -521,7 +535,7 @@ CREATE TABLE `pote` (
   `permite_sorteio_offline` tinyint(1) DEFAULT 0,
   `topico` varchar(255) DEFAULT NULL,
   `items` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`items`)),
-  `nome` longtext NOT NULL
+  `nome` string(255) NOT NULL UNIQUE INDEX
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
