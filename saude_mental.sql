@@ -200,19 +200,33 @@ CREATE TABLE `dados_assinatura` (
 
 DROP TABLE IF EXISTS `dados_cobranca`;
 CREATE TABLE `dados_cobranca` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `fk_cartao` bigint(20) UNSIGNED DEFAULT NULL,
-  `cep` varchar(10) DEFAULT NULL,
-  `endereco` varchar(255) DEFAULT NULL,
-  `bairro` varchar(120) DEFAULT NULL,
-  `numero` bigint(20) NOT NULL,
-  `complemento` varchar(120) DEFAULT NULL,
-  `nome_completo` varchar(255) DEFAULT NULL,
-  `fk_user` bigint(20) UNSIGNED DEFAULT NULL,
-  `cidade` longtext NOT NULL,
-  `estado` longtext NOT NULL,
-  `pais` longtext NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `fk_cartao` BIGINT(20) UNSIGNED DEFAULT NULL,
+  `cep` VARCHAR(20) DEFAULT NULL,          -- suportar códigos postais internacionais
+  `endereco` VARCHAR(255) NOT NULL,        -- exigido
+  `bairro` VARCHAR(120) DEFAULT NULL,
+  `numero` VARCHAR(20) NOT NULL,           -- agora NOT NULL e como string para "s/n", "10A" etc.
+  `complemento` VARCHAR(120) DEFAULT NULL,
+  `nome_completo` VARCHAR(255) DEFAULT NULL,
+  `fk_user` BIGINT(20) UNSIGNED DEFAULT NULL,  -- referencia para dados_acesso.id (permite múltiplos registros por user)
+  `cidade` VARCHAR(120) NOT NULL,
+  `estado` VARCHAR(100) DEFAULT NULL,
+  `regiao` VARCHAR(100) DEFAULT NULL,
+  `pais` VARCHAR(100) NOT NULL,
+  `data_criacao` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `data_atualizacao` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `idx_fk_user` (`fk_user`),
+  KEY `idx_fk_cartao` (`fk_cartao`)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+  ALTER TABLE `dados_cobranca`
+  ADD CONSTRAINT `fk_dadoscobranca_dados_acesso`
+    FOREIGN KEY (`fk_user`) REFERENCES `dados_acesso`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL;
 
 -- --------------------------------------------------------
 
@@ -284,7 +298,7 @@ CREATE TABLE `dados_pessoais` (
   `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
   `fk_dados_acesso` BIGINT(20) UNSIGNED NOT NULL,
   `fk_configuracoes` BIGINT(20) UNSIGNED DEFAULT NULL,
-  `fk_dados_cobranca` BIGINT(20) UNSIGNED DEFAULT NULL,
+  -- `fk_dados_cobranca` removido intencionalmente
   `nome_completo` VARCHAR(255) NOT NULL,
   `data_nascimento` DATE NOT NULL,
   `cpf` CHAR(11) NOT NULL,
@@ -831,13 +845,6 @@ ALTER TABLE `dados_assinatura`
   ADD KEY `fk_dados_assinatura_usuario` (`fk_usuario`);
 
 --
--- Índices para tabela `dados_cobranca`
---
-ALTER TABLE `dados_cobranca`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_dados_cobranca_cartao` (`fk_cartao`);
-
---
 -- Índices para tabela `dados_empresariais`
 --
 ALTER TABLE `dados_empresariais`
@@ -849,7 +856,6 @@ ALTER TABLE `dados_empresariais`
 ALTER TABLE `dados_pessoais`
   ADD UNIQUE KEY `idx_dados_pessoais_fk_configuracoes` (`fk_configuracoes`),
   ADD UNIQUE KEY `idx_dados_pessoais_cpf` (`cpf`),
-  ADD KEY `fk_dp_cobranca` (`fk_dados_cobranca`),
   ADD KEY `fk_dados_pessoais_tipo_plano` (`plano`);
 
 --
@@ -1250,7 +1256,6 @@ ALTER TABLE `dados_pessoais`
   ADD CONSTRAINT `fk_dados_pessoais_tipo_plano` FOREIGN KEY (`plano`) REFERENCES `tipo_plano` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_dp_acesso` FOREIGN KEY (`fk_dados_acesso`) REFERENCES `dados_acesso` (`id`),
   ADD CONSTRAINT `fk_dp_cfg` FOREIGN KEY (`fk_configuracoes`) REFERENCES `configuracoes` (`id`),
-  ADD CONSTRAINT `fk_dp_cobranca` FOREIGN KEY (`fk_dados_cobranca`) REFERENCES `dados_cobranca` (`id`),
   ADD CONSTRAINT `fk_dp_plano` FOREIGN KEY (`plano`) REFERENCES `tipo_plano` (`id`);
 
 --
