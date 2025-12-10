@@ -20,8 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Banco de dados: `saude_mental`
 --
-CREATE DATABASE IF NOT EXISTS `saude_mental` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `saude_mental`;
+CREATE DATABASE IF NOT EXISTS `novo_banco` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `novo_banco`;
 
 -- --------------------------------------------------------
 
@@ -141,15 +141,14 @@ CREATE TABLE `configuracoes` (
 DROP TABLE IF EXISTS `dados_acesso`;
 CREATE TABLE `dados_acesso` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  -- public_id: ULID (26 chars) — safe for exposing to frontend instead of numeric id
-  `public_id` CHAR(26) NOT NULL UNIQUE,
+  `public_id` CHAR(26) NOT NULL,
   `fk_user` BIGINT UNSIGNED DEFAULT NULL,
   `email` VARCHAR(255) DEFAULT NULL,
-  `senha` VARBINARY(255) DEFAULT NULL, -- armazenar hash (bcrypt/argon2) em binário/varbinary
+  `senha` VARBINARY(255) DEFAULT NULL,
   `telefone` VARCHAR(25) DEFAULT NULL,
   `firebase_uid` VARCHAR(255) DEFAULT NULL,
-  `e_empresa` BOOLEAN NOT NULL DEFAULT FALSE,
-  `e_profissional` BOOLEAN NOT NULL DEFAULT FALSE,
+  `e_empresa` TINYINT(1) NOT NULL DEFAULT 0,
+  `e_profissional` TINYINT(1) NOT NULL DEFAULT 0,
   `login_principal` ENUM('email','telefone','oauth') NOT NULL DEFAULT 'oauth',
   `conta_excluida` TINYINT(1) NOT NULL DEFAULT 0,
   `data_exclusao` DATETIME(3) DEFAULT NULL,
@@ -169,16 +168,9 @@ CREATE TABLE `dados_acesso` (
   UNIQUE KEY `ux_firebase_uid` (`firebase_uid`),
   KEY `idx_email` (`email`),
   KEY `idx_telefone` (`telefone`),
-  KEY `idx_fk_user` (`fk_user`),
   KEY `idx_fk_profissional` (`fk_profissional`),
-  KEY `idx_fk_empresa` (`fk_empresa`),
-  CONSTRAINT `fk_dadosacesso_dadosemp` FOREIGN KEY (`fk_empresa`)
-    REFERENCES `dados_empresariais` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_dadosacesso_dadosprof` FOREIGN KEY (`fk_profissional`)
-    REFERENCES `dados_profissionais` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB
-  DEFAULT CHARSET=utf8mb4
-  COLLATE=utf8mb4_unicode_ci;
+  KEY `idx_fk_empresa` (`fk_empresa`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -230,52 +222,24 @@ CREATE TABLE `dados_cobranca` (
 
 DROP TABLE IF EXISTS `dados_empresariais`;
 CREATE TABLE `dados_empresariais` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `nome_clinica` varchar(255) NOT NULL,
-  `nome_representante_legal` varchar(255) DEFAULT NULL,
-  `cnpj` varchar(20) UNIQUE DEFAULT NULL,
-  `endereco_completo_clinica` varchar(255) DEFAULT NULL,
-  `tipos_profissionais` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`tipos_profissionais`)),
-  `publico_alvo` varchar(255) DEFAULT NULL,
-  `modalidade_atendimento` enum('presencial','online','ambos') DEFAULT 'ambos',
-  `aceita_convenio` tinyint(1) DEFAULT 0,
-  `convenios_aceitos` varchar(255) DEFAULT NULL,
-  `realiza_reembolso` tinyint(1) DEFAULT 0,
-  `observacoes_adicionais` varchar(500) DEFAULT NULL,
-  `link_compartilhavel` varchar(500) DEFAULT NULL,
-  `tipo_cobranca` enum('por_profissional','clinica','depende') NOT NULL,
-  `fk_dados_acesso` bigint(20) UNSIGNED NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Estrutura da tabela `dados_pessoais`
---
-
-DROP TABLE IF EXISTS `dados_pessoais`;
-CREATE TABLE `dados_pessoais` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `fk_dados_acesso` bigint(20) UNSIGNED NOT NULL,
-  `fk_configuracoes` bigint(20) UNSIGNED DEFAULT NULL,
-  `fk_dados_cobranca` bigint(20) UNSIGNED DEFAULT NULL,
-  `nome_completo` varchar(255) NOT NULL,
-  `data_nascimento` date NOT NULL,
-  `cpf` char(11) NOT NULL,
-  `genero` enum('homem','mulher','outro') DEFAULT NULL,
-  `imagem_perfil` longblob DEFAULT NULL,
-  `ultima_atualizacao` datetime(3) DEFAULT current_timestamp(3),
-  `pais` varchar(100) NOT NULL,
-  `estado` varchar(100) NOT NULL,
-  `cidade` varchar(120) DEFAULT NULL,
-  `regiao_zona` varchar(120) DEFAULT NULL,
-  `telefone_emergencia_1` varchar(11) DEFAULT NULL,
-  `telefone_emergencia_2` varchar(11) DEFAULT NULL,
-  `telefone_emergencia_3` varchar(11) DEFAULT NULL,
-  `plano` tinyint(3) UNSIGNED DEFAULT NULL,
-  `telefone_emergencia1` varchar(11) DEFAULT NULL,
-  `telefone_emergencia2` varchar(11) DEFAULT NULL,
-  `telefone_emergencia3` varchar(11) DEFAULT NULL
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `nome_clinica` VARCHAR(255) NOT NULL,
+  `nome_representante_legal` VARCHAR(255) DEFAULT NULL,
+  `cnpj` VARCHAR(20) DEFAULT NULL,
+  `endereco_completo_clinica` VARCHAR(255) DEFAULT NULL,
+  `tipos_profissionais` JSON DEFAULT NULL,
+  `publico_alvo` VARCHAR(255) DEFAULT NULL,
+  `modalidade_atendimento` ENUM('presencial','online','ambos') NOT NULL DEFAULT 'ambos',
+  `aceita_convenio` TINYINT(1) NOT NULL DEFAULT 0,
+  `convenios_aceitos` VARCHAR(255) DEFAULT NULL,
+  `realiza_reembolso` TINYINT(1) NOT NULL DEFAULT 0,
+  `observacoes_adicionais` VARCHAR(500) DEFAULT NULL,
+  `link_compartilhavel` VARCHAR(500) DEFAULT NULL,
+  `tipo_cobranca` ENUM('por_profissional','clinica','depende') NOT NULL DEFAULT 'depende',
+  `fk_dados_acesso` BIGINT UNSIGNED DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_dados_empresariais_cnpj` (`cnpj`),
+  KEY `ix_dados_empresariais_fk_dados_acesso` (`fk_dados_acesso`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -286,29 +250,82 @@ CREATE TABLE `dados_pessoais` (
 
 DROP TABLE IF EXISTS `dados_profissionais`;
 CREATE TABLE `dados_profissionais` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `fk_atendimento` bigint(20) UNSIGNED DEFAULT NULL,
-  `e_psicologo` BOOL DEFAULT FALSE,
-  `e_psiquiatra` BOOL DEFAULT FALSE,
-  `e_neuropsicologo` BOOL DEFAULT FALSE,
-  `profissao_outra` varchar(120) DEFAULT NULL,
-  `crp` varchar(50) DEFAULT NULL,
-  `outro_registro` varchar(50) DEFAULT NULL,
-  `publico_alvo` varchar(255) DEFAULT NULL,
-  `temas_abordados` varchar(255) DEFAULT NULL,
-  `modalidade_atendimento` enum('presencial','online','ambos') NOT NULL,
-  `aceita_convenio` tinyint(1) DEFAULT 0,
-  `convenios_aceitos` varchar(255) DEFAULT NULL,
-  `realiza_reembolso` tinyint(1) DEFAULT 0,
-  `observacoes_adicionais` varchar(500) DEFAULT NULL,
-  `profissional_empresa` tinyint(1) DEFAULT 0,
-  `empresa` bigint(20) UNSIGNED DEFAULT NULL,
-  `esta_divulgado` tinyint(1) DEFAULT 0,
-  `link_compartilhavel` varchar(500) DEFAULT NULL,
-  `e_psicologo` tinyint(1) DEFAULT 0,
-  `e_psiquiatra` tinyint(1) DEFAULT 0,
-  `e_neuropsicologo` tinyint(1) DEFAULT 0
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `fk_atendimento` BIGINT UNSIGNED DEFAULT NULL,
+  `e_psicologo` TINYINT(1) DEFAULT 0,
+  `e_psiquiatra` TINYINT(1) DEFAULT 0,
+  `e_neuropsicologo` TINYINT(1) DEFAULT 0,
+  `profissao_outra` VARCHAR(120) DEFAULT NULL,
+  `crp` VARCHAR(50) DEFAULT NULL,
+  `outro_registro` VARCHAR(50) DEFAULT NULL,
+  `publico_alvo` VARCHAR(255) DEFAULT NULL,
+  `temas_abordados` VARCHAR(255) DEFAULT NULL,
+  `modalidade_atendimento` ENUM('presencial','online','ambos') NOT NULL DEFAULT 'ambos',
+  `aceita_convenio` TINYINT(1) DEFAULT 0,
+  `convenios_aceitos` VARCHAR(255) DEFAULT NULL,
+  `realiza_reembolso` TINYINT(1) DEFAULT 0,
+  `observacoes_adicionais` VARCHAR(500) DEFAULT NULL,
+  `profissional_empresa` TINYINT(1) DEFAULT 0,
+  `empresa` BIGINT UNSIGNED DEFAULT NULL,
+  `esta_divulgado` TINYINT(1) DEFAULT 0,
+  `link_compartilhavel` VARCHAR(500) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_empresa` (`empresa`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura da tabela `dados_pessoais`
+--
+
+DROP TABLE IF EXISTS `dados_pessoais`;
+CREATE TABLE `dados_pessoais` (
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `fk_dados_acesso` BIGINT(20) UNSIGNED NOT NULL,
+  `fk_configuracoes` BIGINT(20) UNSIGNED DEFAULT NULL,
+  `fk_dados_cobranca` BIGINT(20) UNSIGNED DEFAULT NULL,
+  `nome_completo` VARCHAR(255) NOT NULL,
+  `data_nascimento` DATE NOT NULL,
+  `cpf` CHAR(11) NOT NULL,
+  `genero` ENUM('homem','mulher','outro') DEFAULT NULL,
+  `imagem_perfil` LONGBLOB DEFAULT NULL,
+  `ultima_atualizacao` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `pais` VARCHAR(100) NOT NULL,
+  `estado` VARCHAR(100) NOT NULL,
+  `cidade` VARCHAR(120) DEFAULT NULL,
+  `regiao_zona` VARCHAR(120) DEFAULT NULL,
+  `telefone_emergencia_1` VARCHAR(11) DEFAULT NULL,
+  `telefone_emergencia_2` VARCHAR(11) DEFAULT NULL,
+  `telefone_emergencia_3` VARCHAR(11) DEFAULT NULL,
+  `plano` TINYINT(3) UNSIGNED DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_fk_dados_acesso` (`fk_dados_acesso`),
+  KEY `idx_cpf` (`cpf`),
+  KEY `idx_pais_estado` (`pais`, `estado`),
+  CONSTRAINT `fk_dados_pessoais_dados_acesso` FOREIGN KEY (`fk_dados_acesso`) REFERENCES `dados_acesso`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Chave estrageira das tabelas `dados_acesso` e `dados_empresariais`
+--
+
+ALTER TABLE `dados_acesso`
+  ADD CONSTRAINT `fk_dadosacesso_dadosprof`
+    FOREIGN KEY (`fk_profissional`) REFERENCES `dados_profissionais` (`id`)
+      ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_dadosacesso_dadosemp`
+    FOREIGN KEY (`fk_empresa`) REFERENCES `dados_empresariais` (`id`)
+      ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE `dados_empresariais`
+  ADD CONSTRAINT `fk_dados_empresariais_dados_acesso`
+    FOREIGN KEY (`fk_dados_acesso`) REFERENCES `dados_acesso` (`id`)
+      ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- --------------------------------------------------------
 
@@ -530,12 +547,21 @@ CREATE TABLE `pergunta_importancia_terapia` (
 
 DROP TABLE IF EXISTS `pote`;
 CREATE TABLE `pote` (
-  `id` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
   `categoria` varchar(100) DEFAULT NULL,
   `permite_sorteio_offline` tinyint(1) DEFAULT 0,
   `topico` varchar(255) DEFAULT NULL,
-  `items` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`items`)),
-  `nome` string(255) NOT NULL UNIQUE INDEX
+  `items` longtext
+      CHARACTER SET utf8mb4
+      COLLATE utf8mb4_bin
+      DEFAULT NULL
+      CHECK (json_valid(`items`)),
+  `nome` varchar(255) NOT NULL,
+  
+  -- Índices
+  UNIQUE KEY `uk_pote_nome` (`nome`),
+
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -789,8 +815,6 @@ ALTER TABLE `configuracoes`
 -- Índices para tabela `dados_acesso`
 --
 ALTER TABLE `dados_acesso`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `idx_dados_acesso_fk_user` (`fk_user`),
   ADD UNIQUE KEY `idx_dados_acesso_email` (`email`),
   ADD UNIQUE KEY `idx_dados_acesso_telefone` (`telefone`),
   ADD UNIQUE KEY `idx_dados_acesso_fk_profissional` (`fk_profissional`),
@@ -817,16 +841,12 @@ ALTER TABLE `dados_cobranca`
 -- Índices para tabela `dados_empresariais`
 --
 ALTER TABLE `dados_empresariais`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `idx_dados_empresariais_fk_dados_acesso` (`fk_dados_acesso`),
   ADD UNIQUE KEY `idx_dados_empresariais_cnpj` (`cnpj`);
 
 --
 -- Índices para tabela `dados_pessoais`
 --
 ALTER TABLE `dados_pessoais`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `fk_dados_acesso` (`fk_dados_acesso`),
   ADD UNIQUE KEY `idx_dados_pessoais_fk_configuracoes` (`fk_configuracoes`),
   ADD UNIQUE KEY `idx_dados_pessoais_cpf` (`cpf`),
   ADD KEY `fk_dp_cobranca` (`fk_dados_cobranca`),
@@ -836,8 +856,6 @@ ALTER TABLE `dados_pessoais`
 -- Índices para tabela `dados_profissionais`
 --
 ALTER TABLE `dados_profissionais`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `idx_dados_profissionais_fk_atendimento` (`fk_atendimento`),
   ADD KEY `fk_dados_profissionais_dados_empresariais` (`empresa`);
 
 --
@@ -920,13 +938,6 @@ ALTER TABLE `paciente`
 ALTER TABLE `pergunta_importancia_terapia`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `idx_pergunta_importancia_terapia_fk_usuario` (`fk_usuario`);
-
---
--- Índices para tabela `pote`
---
-ALTER TABLE `pote`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `idx_pote_nome` (`nome`) USING HASH;
 
 --
 -- Índices para tabela `relacionamento_dp_diarios`
