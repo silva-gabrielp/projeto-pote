@@ -404,17 +404,42 @@ CREATE TABLE `diario` (
 -- Estrutura da tabela `erro_app`
 --
 
+CREATE TABLE `conta_acesso` (
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `usuario` VARCHAR(150) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 DROP TABLE IF EXISTS `erro_app`;
 CREATE TABLE `erro_app` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `data_criacao` datetime(3) DEFAULT NULL,
-  `tipo_erro` varchar(120) DEFAULT NULL,
-  `origem` varchar(120) DEFAULT NULL,
-  `mensagem` varchar(500) DEFAULT NULL,
-  `fk_criador` bigint(20) UNSIGNED DEFAULT NULL,
-  `contador` tinyint(3) UNSIGNED DEFAULT 1,
-  `foi_crado_por_usuario` tinyint(1) DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `data_criacao` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+  -- Campos obrigatórios
+  `tipo_erro` VARCHAR(120) NOT NULL,
+  `origem` VARCHAR(120) NOT NULL,
+  `mensagem` VARCHAR(500) NOT NULL,
+
+  -- Identificação do criador (usuário do sistema)
+  `foi_criado_por_usuario` TINYINT(1) NOT NULL DEFAULT 1,
+  `fk_criador` BIGINT(20) UNSIGNED DEFAULT NULL,
+
+  -- Controle de agregação de erros
+  `contador` INT UNSIGNED NOT NULL DEFAULT 1,
+
+  -- Atualização automática em caso de incrementos
+  `ultima_atualizacao` TIMESTAMP NULL 
+       DEFAULT NULL 
+       ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+
+  CONSTRAINT `fk_erroapp_criador`
+    FOREIGN KEY (`fk_criador`) REFERENCES `conta_acesso` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB 
+  DEFAULT CHARSET=utf8mb4 
+  COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -450,18 +475,18 @@ CREATE TABLE `estatisticas_profissional` (
   `fk_profissional` bigint(20) UNSIGNED NOT NULL,
   `data_criacao` datetime(3) DEFAULT NULL,
   `data_atualizacao` datetime(3) DEFAULT NULL,
-  `pacientes` int(11) DEFAULT 0,
-  `entraram_contato` int(11) DEFAULT 0,
-  `agendamentos` int(11) DEFAULT 0,
-  `likes_oficinas` int(11) DEFAULT 0,
-  `likes_desafios` int(11) DEFAULT 0,
-  `likes_comentarios` int(11) DEFAULT 0,
-  `participantes_oficinas` int(11) DEFAULT 0,
-  `participantes_desafios` int(11) DEFAULT 0,
-  `participantes_atividades` int(11) DEFAULT 0,
-  `ganhos` int(11) DEFAULT 0,
+  `pacientes` int(11) UNSIGNED DEFAULT 0,
+  `entraram_contato` int(11) UNSIGNED DEFAULT 0,
+  `agendamentos` int(11) UNSIGNED DEFAULT 0,
+  `likes_oficinas` int(11) UNSIGNED DEFAULT 0,
+  `likes_desafios` int(11) UNSIGNED DEFAULT 0,
+  `likes_comentarios` int(11) UNSIGNED DEFAULT 0,
+  `participantes_oficinas` int(11) UNSIGNED DEFAULT 0,
+  `participantes_desafios` int(11) UNSIGNED DEFAULT 0,
+  `participantes_atividades` int(11) UNSIGNED DEFAULT 0,
+  `ganhos` int(11) UNSIGNED DEFAULT 0,
   `e_empresa` tinyint(1) DEFAULT 0,
-  `numero_profissionais` int(11) DEFAULT 0
+  `numero_profissionais` int(11) UNSIGNED DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -595,18 +620,6 @@ CREATE TABLE `pote` (
   UNIQUE KEY `uk_pote_nome` (`nome`),
 
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Estrutura da tabela `relacionamento_dp_diarios`
---
-
-DROP TABLE IF EXISTS `relacionamento_dp_diarios`;
-CREATE TABLE `relacionamento_dp_diarios` (
-  `fk_usuario` bigint(20) UNSIGNED NOT NULL,
-  `fk_diario` bigint(20) UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -789,14 +802,27 @@ CREATE TABLE `usuario_oficina_favorita` (
 
 DROP TABLE IF EXISTS `usuario_sem_autenticacao`;
 CREATE TABLE `usuario_sem_autenticacao` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `data_primeiro_acesso` datetime(3) DEFAULT NULL,
-  `data_ultimo_acesso` datetime(3) DEFAULT NULL,
-  `dispositivo` enum('web','android','ios') NOT NULL,
-  `identificador` longtext DEFAULT NULL,
-  `ip` varchar(64) NOT NULL,
-  `dispositivo_info` longtext DEFAULT NULL,
-  `location` longtext DEFAULT NULL
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+
+  `data_primeiro_acesso` DATETIME(3) DEFAULT NULL,
+  `data_ultimo_acesso` DATETIME(3) DEFAULT NULL,
+
+  `dispositivo` ENUM('web','android','ios') NOT NULL,
+
+  -- Alterado conforme item (d)
+  `identificador` VARCHAR(255) NOT NULL,
+
+  -- Item (a)
+  `ip` VARCHAR(64) NOT NULL,
+
+  -- Item (b)
+  `dispositivo_info` LONGTEXT DEFAULT NULL,
+
+  -- Item (c)
+  `localizacao` VARCHAR(255) DEFAULT NULL,
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_identificador_unique` (`identificador`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -894,13 +920,6 @@ ALTER TABLE `desafio_user`
   ADD KEY `fk_desafio_user_desafio` (`fk_desafio`);
 
 --
--- Índices para tabela `erro_app`
---
-ALTER TABLE `erro_app`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_erro_app_criador` (`fk_criador`);
-
---
 -- Índices para tabela `estatisticas_app`
 --
 ALTER TABLE `estatisticas_app`
@@ -948,13 +967,6 @@ ALTER TABLE `paciente`
 ALTER TABLE `pergunta_importancia_terapia`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `idx_pergunta_importancia_terapia_fk_usuario` (`fk_usuario`);
-
---
--- Índices para tabela `relacionamento_dp_diarios`
---
-ALTER TABLE `relacionamento_dp_diarios`
-  ADD PRIMARY KEY (`fk_usuario`,`fk_diario`),
-  ADD KEY `fk_relacionamento_dp_diarios_diario` (`fk_diario`);
 
 --
 -- Índices para tabela `session`
@@ -1021,17 +1033,6 @@ ALTER TABLE `usuario_diario_ref`
 ALTER TABLE `usuario_oficina_favorita`
   ADD PRIMARY KEY (`fk_usuario`,`fk_oficina`),
   ADD KEY `fk_usuario_oficina_favorita_oficina` (`fk_oficina`);
-
---
--- Índices para tabela `usuario_sem_autenticacao`
---
-ALTER TABLE `usuario_sem_autenticacao`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `idx_usuario_sem_autenticacao_identificador` (`identificador`) USING HASH;
-
---
--- AUTO_INCREMENT de tabelas despejadas
---
 
 --
 -- AUTO_INCREMENT de tabela `atendimento`
@@ -1182,12 +1183,6 @@ ALTER TABLE `pote`
 --
 ALTER TABLE `users`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- AUTO_INCREMENT de tabela `usuario_sem_autenticacao`
---
-ALTER TABLE `usuario_sem_autenticacao`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- Restrições para despejos de tabelas
@@ -1343,15 +1338,6 @@ ALTER TABLE `paciente`
 ALTER TABLE `pergunta_importancia_terapia`
   ADD CONSTRAINT `fk_pergunta_importancia_terapia_usuario` FOREIGN KEY (`fk_usuario`) REFERENCES `dados_pessoais` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_pit_user` FOREIGN KEY (`fk_usuario`) REFERENCES `dados_pessoais` (`id`);
-
---
--- Limitadores para a tabela `relacionamento_dp_diarios`
---
-ALTER TABLE `relacionamento_dp_diarios`
-  ADD CONSTRAINT `fk_rel_diario` FOREIGN KEY (`fk_diario`) REFERENCES `diario` (`id`),
-  ADD CONSTRAINT `fk_rel_user` FOREIGN KEY (`fk_usuario`) REFERENCES `dados_pessoais` (`id`),
-  ADD CONSTRAINT `fk_relacionamento_dp_diarios_diario` FOREIGN KEY (`fk_diario`) REFERENCES `diario` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_relacionamento_dp_diarios_usuario` FOREIGN KEY (`fk_usuario`) REFERENCES `dados_pessoais` (`id`) ON DELETE CASCADE;
 
 --
 -- Limitadores para a tabela `session`
