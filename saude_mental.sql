@@ -93,11 +93,11 @@ CREATE TABLE `atividade_user` (
 
 DROP TABLE IF EXISTS `cartao`;
 CREATE TABLE `cartao` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `numero_cartao` varbinary(64) NOT NULL,
-  `codigo_seguranca` varbinary(16) NOT NULL,
-  `data_validade` char(4) NOT NULL,
-  `ultimos_digitos` char(4) NOT NULL
+  `id` BIGINT(20) UNSIGNED NOT NULL,
+  `numero_cartao` VARBINARY(64) NOT NULL,
+  `data_validade` CHAR(4) NOT NULL,
+  `ultimos_digitos` CHAR(4) NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -388,13 +388,14 @@ CREATE TABLE `desafio_user` (
 
 DROP TABLE IF EXISTS `diario`;
 CREATE TABLE `diario` (
-  `id` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
   `fk_usuario` bigint(20) UNSIGNED NOT NULL,
-  `data_criacao` datetime(3) DEFAULT NULL,
-  `data_atualizacao` datetime(3) DEFAULT NULL,
+  `data_criacao` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `data_atualizacao` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   `origem` enum('pote','desafio','oficina','outro') NOT NULL,
   `topico` varchar(255) DEFAULT NULL,
-  `texto` text DEFAULT NULL
+  `texto` text NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -423,16 +424,18 @@ CREATE TABLE `erro_app` (
 
 DROP TABLE IF EXISTS `estatisticas_app`;
 CREATE TABLE `estatisticas_app` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `numero_dispositivos_sem_autenticacao` int(11) DEFAULT 0,
-  `numero_usuarios` int(11) DEFAULT 0,
-  `numero_profissionais` int(11) DEFAULT 0,
-  `numero_empresas` int(11) DEFAULT 0,
-  `numero_delecoes` int(11) DEFAULT 0,
-  `numero_usuarios_pagos` int(11) DEFAULT 0,
-  `ganhos` int(11) DEFAULT 0,
-  `data_criacao` datetime(3) DEFAULT NULL,
-  `data_atualizacao` datetime(3) DEFAULT NULL
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `numero_dispositivos_sem_autenticacao` INT UNSIGNED DEFAULT 0,
+  `numero_usuarios` INT UNSIGNED DEFAULT 0,
+  `numero_profissionais` INT UNSIGNED DEFAULT 0,
+  `numero_empresas` INT UNSIGNED DEFAULT 0,
+  `numero_delecoes` INT UNSIGNED DEFAULT 0,
+  `numero_usuarios_pagos` INT UNSIGNED DEFAULT 0,
+  `ganhos` INT UNSIGNED DEFAULT 0,
+  `data_criacao` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `data_atualizacao` DATETIME(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3),
+
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -469,15 +472,31 @@ CREATE TABLE `estatisticas_profissional` (
 
 DROP TABLE IF EXISTS `notificacao`;
 CREATE TABLE `notificacao` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `target_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `target_group` tinyint(3) UNSIGNED DEFAULT NULL,
-  `titulo` varchar(255) NOT NULL,
-  `mensagem` text NOT NULL,
-  `link_acao` varchar(500) DEFAULT NULL,
-  `quando_enviar` datetime(3) DEFAULT NULL,
-  `foi_enviado` tinyint(1) DEFAULT 0,
-  `meio` enum('todos','in_app','out_app','email','whatsapp') DEFAULT 'out_app'
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `target_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+  `target_group` TINYINT(3) UNSIGNED DEFAULT NULL,
+  `titulo` VARCHAR(255) NOT NULL,
+  `mensagem` TEXT NOT NULL,
+  `link_acao` VARCHAR(500) DEFAULT NULL,
+
+  /* b) Quando enviar */
+  `quando_enviar` TIMESTAMP NULL DEFAULT NULL,
+
+  /* c) Foi enviado */
+  `foi_enviado` TINYINT(1) NOT NULL DEFAULT 0,
+
+  /* d) Meio de envio */
+  `meio` ENUM(
+      'todos',
+      'app',
+      'in_app',
+      'out_app',
+      'web',
+      'email',
+      'whatsapp'
+  ) NOT NULL DEFAULT 'app',
+
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -806,12 +825,6 @@ ALTER TABLE `atividade_user`
   ADD KEY `fk_atividade_user_atividade` (`fk_atividade`);
 
 --
--- Índices para tabela `cartao`
---
-ALTER TABLE `cartao`
-  ADD PRIMARY KEY (`id`);
-
---
 -- Índices para tabela `comentario_importancia_terapia`
 --
 ALTER TABLE `comentario_importancia_terapia`
@@ -881,13 +894,6 @@ ALTER TABLE `desafio_user`
   ADD KEY `fk_desafio_user_desafio` (`fk_desafio`);
 
 --
--- Índices para tabela `diario`
---
-ALTER TABLE `diario`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_diario_usuario` (`fk_usuario`);
-
---
 -- Índices para tabela `erro_app`
 --
 ALTER TABLE `erro_app`
@@ -898,7 +904,6 @@ ALTER TABLE `erro_app`
 -- Índices para tabela `estatisticas_app`
 --
 ALTER TABLE `estatisticas_app`
-  ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `idx_estatisticas_app_data_criacao` (`data_criacao`);
 
 --
@@ -912,7 +917,6 @@ ALTER TABLE `estatisticas_profissional`
 -- Índices para tabela `notificacao`
 --
 ALTER TABLE `notificacao`
-  ADD PRIMARY KEY (`id`),
   ADD KEY `fk_notificacao_tipo_grupo` (`target_group`);
 
 --
