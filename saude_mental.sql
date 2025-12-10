@@ -20,8 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Banco de dados: `saude_mental`
 --
-CREATE DATABASE IF NOT EXISTS `novo_banco` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `novo_banco`;
+CREATE DATABASE IF NOT EXISTS `saude_mental` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `saude_mental`;
 
 -- --------------------------------------------------------
 
